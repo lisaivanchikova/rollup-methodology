@@ -569,20 +569,9 @@
 
 <script>
 // ====================== DATA ======================
+// 16 verticals from our P&L Before/After AI sheet (2026-05-22)
 const cellData = [
-  ["Insurance P&C tier-2", "5242", "Doc parsing", 9, 6.4, 8, 8.5, ""],
-  ["Insurance P&C tier-2", "5242", "Customer support", 6, 6.4, 6, 8.5, ""],
-  ["Insurance P&C tier-2", "5242", "Billing / A/R", 5, 6.4, 7, 8.5, ""],
-  ["Insurance P&C tier-2", "5242", "Sales / leads", 7, 6.4, 4, 8.5, ""],
-  ["Insurance P&C tier-2", "5242", "Relationship", 2, 8.0, 1, 8.5, "protected — brokers"],
-
-  ["HomeCare", "6216", "Doc parsing", 7, 7.0, 6, 8, ""],
-  ["HomeCare", "6216", "Scheduling", 8, 8.0, 5, 8, ""],
-  ["HomeCare", "6216", "Customer support", 5, 7.0, 6, 8, ""],
-  ["HomeCare", "6216", "Billing", 6, 8.0, 7, 8, ""],
-  ["HomeCare", "6216", "Sales / leads", 5, 6.0, 4, 8, ""],
-  ["HomeCare", "6216", "Relationship", 1, 9.0, 1, 8, "protected — care"],
-
+  // === HELL-YES / STRONG (knowledge-heavy) ===
   ["Property Mgmt", "5311", "Doc parsing", 7, 7.0, 7, 8, ""],
   ["Property Mgmt", "5311", "Scheduling", 8, 7.0, 6, 8, ""],
   ["Property Mgmt", "5311", "Customer support", 8, 7.0, 7, 8, ""],
@@ -596,12 +585,47 @@ const cellData = [
   ["Accounting", "5412", "Sales / leads", 5, 6.0, 4, 8, ""],
   ["Accounting", "5412", "Relationship", 3, 9.0, 2, 8, "CFO advisory — premium upsell"],
 
+  ["HomeCare", "6216", "Doc parsing", 7, 7.0, 6, 8, ""],
+  ["HomeCare", "6216", "Scheduling", 8, 8.0, 5, 8, ""],
+  ["HomeCare", "6216", "Customer support", 5, 7.0, 6, 8, ""],
+  ["HomeCare", "6216", "Billing", 6, 8.0, 7, 8, ""],
+  ["HomeCare", "6216", "Sales / leads", 5, 6.0, 4, 8, ""],
+  ["HomeCare", "6216", "Field work", 1, 9.0, 1, 8, "protected — physical caregiving"],
+
   ["MSP / IT", "5415", "Doc parsing", 7, 7.0, 7, 7, ""],
   ["MSP / IT", "5415", "Scheduling", 7, 7.0, 6, 7, ""],
   ["MSP / IT", "5415", "Customer support", 8, 6.0, 8, 7, ""],
   ["MSP / IT", "5415", "Billing", 6, 7.0, 7, 7, ""],
   ["MSP / IT", "5415", "Sales / leads", 5, 6.0, 4, 7, ""],
-  ["MSP / IT", "5415", "Relationship", 2, 8.0, 1, 7, "protected — CISO"],
+  ["MSP / IT", "5415", "Relationship", 2, 8.0, 1, 7, "protected — CISO advisory"],
+
+  ["Insurance P&C tier-2", "5242", "Doc parsing", 9, 6.4, 8, 8.5, ""],
+  ["Insurance P&C tier-2", "5242", "Customer support", 6, 6.4, 6, 8.5, ""],
+  ["Insurance P&C tier-2", "5242", "Billing", 5, 6.4, 7, 8.5, ""],
+  ["Insurance P&C tier-2", "5242", "Sales / leads", 7, 6.4, 4, 8.5, ""],
+  ["Insurance P&C tier-2", "5242", "Relationship", 2, 8.0, 1, 8.5, "protected — broker"],
+
+  ["Commercial Landscaping", "5617", "Doc parsing", 5, 6, 7, 7, ""],
+  ["Commercial Landscaping", "5617", "Scheduling", 7, 7, 6, 7, ""],
+  ["Commercial Landscaping", "5617", "Customer support", 4, 6, 6, 7, ""],
+  ["Commercial Landscaping", "5617", "Billing", 5, 7, 7, 7, ""],
+  ["Commercial Landscaping", "5617", "Sales / leads", 6, 6, 5, 7, ""],
+  ["Commercial Landscaping", "5617", "Field work", 1, 8, 1, 7, "protected — physical crews"],
+
+  ["HR Exec Search", "5613", "Doc parsing", 8, 5.0, 8, 6, ""],
+  ["HR Exec Search", "5613", "Scheduling", 6, 5.0, 6, 6, ""],
+  ["HR Exec Search", "5613", "Customer support", 5, 5.0, 6, 6, ""],
+  ["HR Exec Search", "5613", "Billing", 4, 5.0, 7, 6, ""],
+  ["HR Exec Search", "5613", "Sales / leads", 9, 4.0, 9, 6, "recruiters walk with book"],
+  ["HR Exec Search", "5613", "Relationship", 2, 7.0, 1, 6, ""],
+
+  // === CONDITIONAL ===
+  ["NEMT", "4859", "Doc parsing", 6, 5, 7, 4, "Medicaid claims"],
+  ["NEMT", "4859", "Scheduling", 8, 6, 7, 4, "dispatch = core value"],
+  ["NEMT", "4859", "Customer support", 5, 5, 6, 4, ""],
+  ["NEMT", "4859", "Billing", 6, 6, 7, 4, ""],
+  ["NEMT", "4859", "Sales / leads", 4, 5, 4, 4, ""],
+  ["NEMT", "4859", "Field work", 1, 7, 1, 4, "drivers + fleet protected"],
 
   ["Marketing", "5418", "Doc parsing", 4, 4.0, 7, 6, ""],
   ["Marketing", "5418", "Customer support", 3, 4.0, 6, 6, ""],
@@ -610,12 +634,48 @@ const cellData = [
   ["Marketing", "5418", "Creative production", 9, 3.0, 9, 6, "AI commoditizes pricing"],
   ["Marketing", "5418", "Relationship", 1, 5.0, 1, 6, ""],
 
-  ["HR Exec Search", "5613", "Doc parsing", 8, 5.0, 8, 6, ""],
-  ["HR Exec Search", "5613", "Scheduling", 6, 5.0, 6, 6, ""],
-  ["HR Exec Search", "5613", "Customer support", 5, 5.0, 6, 6, ""],
-  ["HR Exec Search", "5613", "Billing", 4, 5.0, 7, 6, ""],
-  ["HR Exec Search", "5613", "Sales / leads", 9, 4.0, 9, 6, "recruiters walk with book"],
-  ["HR Exec Search", "5613", "Relationship", 2, 7.0, 1, 6, ""],
+  ["Roofing", "2381", "Doc parsing", 5, 4, 7, 5, ""],
+  ["Roofing", "2381", "Scheduling", 6, 4, 6, 5, ""],
+  ["Roofing", "2381", "Customer support", 4, 4, 6, 5, ""],
+  ["Roofing", "2381", "Billing", 5, 4, 7, 5, ""],
+  ["Roofing", "2381", "Sales / leads", 8, 3, 8, 5, "ANGI/Thumbtack lead tax"],
+  ["Roofing", "2381", "Field work", 1, 6, 1, 5, "protected — physical install"],
+
+  ["Marinas / Yachts", "7139", "Doc parsing", 4, 6, 6, 4, ""],
+  ["Marinas / Yachts", "7139", "Scheduling", 5, 7, 5, 4, ""],
+  ["Marinas / Yachts", "7139", "Customer support", 4, 7, 6, 4, ""],
+  ["Marinas / Yachts", "7139", "Billing", 5, 7, 7, 4, ""],
+  ["Marinas / Yachts", "7139", "Sales / leads", 5, 6, 5, 4, ""],
+  ["Marinas / Yachts", "7139", "Field work", 1, 7, 1, 4, "protected — physical maintenance"],
+
+  // === PASS / KILL ===
+  ["Veterinary", "5419", "Doc parsing", 4, 4, 7, 3, "PE-saturated"],
+  ["Veterinary", "5419", "Scheduling", 5, 4, 6, 3, ""],
+  ["Veterinary", "5419", "Customer support", 4, 4, 7, 3, ""],
+  ["Veterinary", "5419", "Billing", 4, 4, 7, 3, ""],
+  ["Veterinary", "5419", "Sales / leads", 3, 3, 5, 3, ""],
+  ["Veterinary", "5419", "Field work", 1, 4, 1, 3, "DVM care — catchment-bound 4-Wall"],
+
+  ["Handyman", "8114", "Doc parsing", 3, 2, 7, 4, ""],
+  ["Handyman", "8114", "Scheduling", 4, 2, 6, 4, ""],
+  ["Handyman", "8114", "Customer support", 3, 2, 6, 4, ""],
+  ["Handyman", "8114", "Billing", 4, 2, 7, 4, ""],
+  ["Handyman", "8114", "Sales / leads", 5, 1, 8, 4, "ANGI/Thumbtack capture"],
+  ["Handyman", "8114", "Field work", 1, 4, 1, 4, "protected — physical"],
+
+  ["Cable / Fiber", "2371", "Doc parsing", 4, 4, 6, 4, ""],
+  ["Cable / Fiber", "2371", "Scheduling", 5, 4, 5, 4, ""],
+  ["Cable / Fiber", "2371", "Customer support", 3, 3, 5, 4, ""],
+  ["Cable / Fiber", "2371", "Billing", 4, 4, 6, 4, ""],
+  ["Cable / Fiber", "2371", "Sales / leads", 4, 3, 4, 4, "utility owns customer"],
+  ["Cable / Fiber", "2371", "Field work", 1, 5, 1, 4, "protected — physical install"],
+
+  ["Oil Additives", "3251", "Doc parsing", 3, 5, 6, 2, ""],
+  ["Oil Additives", "3251", "Scheduling", 4, 5, 5, 2, ""],
+  ["Oil Additives", "3251", "Customer support", 2, 5, 5, 2, ""],
+  ["Oil Additives", "3251", "Billing", 3, 5, 6, 2, ""],
+  ["Oil Additives", "3251", "Sales / leads", 4, 5, 4, 2, ""],
+  ["Oil Additives", "3251", "Field work", 2, 6, 2, 2, "COGS dominant — manufacturing"],
 
   ["BPO / Call Centers", "5611", "Doc parsing", 8, 1.0, 9, 4, "AI destroys"],
   ["BPO / Call Centers", "5611", "Customer support", 10, 1.0, 10, 3, "AI destroys — Klarna pattern"],
@@ -630,16 +690,18 @@ const workflowOrder = [
   "Scheduling",
   "Customer support",
   "Billing",
-  "Billing / A/R",
   "Sales / leads",
   "Creative production",
+  "Field work",
   "Relationship"
 ];
 
-// Sub-sector display order (columns)
+// Sub-sector display order (columns) — 16 verticals from P&L sheet
 const subOrder = [
-  "Property Mgmt", "Accounting", "HomeCare", "MSP / IT",
-  "Insurance P&C tier-2", "HR Exec Search", "Marketing", "BPO / Call Centers"
+  "Property Mgmt", "Accounting", "HomeCare", "MSP / IT", "Insurance P&C tier-2",
+  "Commercial Landscaping", "HR Exec Search", "NEMT", "Marketing", "Roofing",
+  "Marinas / Yachts", "Veterinary", "Handyman", "Cable / Fiber", "Oil Additives",
+  "BPO / Call Centers"
 ];
 
 // Compute S for each cell
@@ -841,7 +903,7 @@ function renderCards(layer) {
   document.getElementById('cards-grid').innerHTML = html;
 }
 
-// Render matrix (Layer 2)
+// Render matrix (Layer 2) — rows=verticals, cols=workflows
 function renderMatrix(layer) {
   const tbl = document.getElementById('matrix-table');
 
@@ -849,7 +911,6 @@ function renderMatrix(layer) {
   const map = {};
   subOrder.forEach(s => { map[s] = {}; });
   cells.forEach(c => {
-    // Match workflow to canonical name
     let canonWf = workflowOrder.find(w => c.workflow.startsWith(w));
     if (!canonWf) canonWf = c.workflow;
     if (!map[c.subsector]) map[c.subsector] = {};
@@ -861,17 +922,28 @@ function renderMatrix(layer) {
     return subOrder.some(s => map[s] && map[s][w]);
   });
 
-  let html = '<thead><tr><th class="col-header" style="text-align: left; padding-left: 14px;">Workflow ↓ · Sub-sector →</th>';
-  subOrder.forEach(s => {
+  // Sort verticals by sumS (best first)
+  const sortedSubs = [...subOrder].sort((a, b) => {
+    const va = verticals[a] ? verticals[a].sumS : 0;
+    const vb = verticals[b] ? verticals[b].sumS : 0;
+    return vb - va;
+  });
+
+  let html = '<thead><tr><th class="col-header" style="text-align: left; padding-left: 14px; min-width: 180px;">Sub-sector ↓ · Workflow →</th>';
+  wfUsed.forEach(wf => {
+    html += `<th class="col-header">${wf}</th>`;
+  });
+  html += '<th class="col-header" style="min-width: 80px;">Σ S</th></tr></thead><tbody>';
+
+  sortedSubs.forEach(s => {
     const v = verticals[s];
     if (!v) return;
-    html += `<th class="col-header">${s}<small>NAICS ${v.naics}</small></th>`;
-  });
-  html += '</tr></thead><tbody>';
-
-  wfUsed.forEach(wf => {
-    html += `<tr><th class="row-label">${wf}</th>`;
-    subOrder.forEach(s => {
+    const vv = verticalVerdict(v);
+    html += `<tr><th class="row-label" style="border-left: 4px solid ${vv.color}">
+      <div style="font-size:13px;font-weight:700">${s}</div>
+      <div style="font-size:10px;color:#777;font-weight:400">NAICS ${v.naics} · ${vv.emoji} ${vv.label}</div>
+    </th>`;
+    wfUsed.forEach(wf => {
       const cell = map[s] && map[s][wf];
       if (!cell) {
         html += `<td class="matrix-cell-empty">—</td>`;
@@ -887,6 +959,8 @@ function renderMatrix(layer) {
           data-note="${cell.note || ''}">${val}${warn}</td>`;
       }
     });
+    // Sum column
+    html += `<td class="matrix-cell" style="background:${vv.color};color:#fff;font-weight:700">${v.sumS.toLocaleString()}</td>`;
     html += `</tr>`;
   });
   html += '</tbody>';
