@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Value Migration — Roll-up Vertical Selection · Bobroff Capital</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Arial, sans-serif;
+    background: #0a0a0a; color: #e8eaed; min-height: 100vh;
+    font-size: 14px; line-height: 1.5;
+  }
+  a { color: #4ea0ff; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* Header */
+  header.app-header {
+    padding: 14px 28px; border-bottom: 1px solid #1f1f1f;
+    display: flex; align-items: center; justify-content: space-between;
+    background: #0a0a0a; position: sticky; top: 0; z-index: 50;
+  }
+  .title-block { display: flex; align-items: baseline; gap: 14px; }
+  .title-block .title { font-size: 17px; font-weight: 700; color: #fff; letter-spacing: -0.2px; }
+  .title-block .subtitle { font-weight: 400; color: #777; font-size: 12px; }
+  .nav { display: flex; gap: 4px; background: #161616; padding: 4px; border-radius: 8px; }
+  .nav-tab {
+    padding: 7px 16px; cursor: pointer; color: #888; font-size: 13px;
+    border-radius: 5px; user-select: none; font-weight: 500;
+    transition: all 0.15s;
+  }
+  .nav-tab.active { background: #1a73e8; color: #fff; }
+  .nav-tab:hover:not(.active) { color: #ccc; }
+
+  /* Views */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* Layer bar */
+  .layer-bar {
+    padding: 14px 28px; display: flex; align-items: center; gap: 20px;
+    background: #0c0c0c; border-bottom: 1px solid #1f1f1f;
+    flex-wrap: wrap;
+  }
+  .layer-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: #777;
+    font-weight: 700;
+  }
+  .layer-toggle { display: flex; gap: 2px; background: #161616; padding: 3px; border-radius: 7px; }
+  .layer-btn {
+    padding: 7px 14px; cursor: pointer; color: #888; font-size: 12px;
+    border-radius: 5px; user-select: none; border: none; background: transparent;
+    font-family: inherit; font-weight: 600; transition: all 0.15s;
+  }
+  .layer-btn:hover:not(.active) { color: #ccc; }
+  .layer-btn.active { background: #fff; color: #0a0a0a; }
+  .legend {
+    display: flex; gap: 10px; align-items: center; margin-left: auto;
+    font-size: 11px; color: #888;
+  }
+  .legend-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; background: #161616; border-radius: 12px;
+  }
+  .legend-color {
+    width: 10px; height: 10px; border-radius: 2px;
+  }
+
+  /* Stats */
+  .stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0; background: #0c0c0c;
+    border-bottom: 1px solid #1f1f1f;
+  }
+  .stat-item {
+    padding: 14px 24px; border-right: 1px solid #1f1f1f;
+  }
+  .stat-item:last-child { border-right: none; }
+  .stat-item .label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+    color: #777; font-weight: 600;
+  }
+  .stat-item .value { font-size: 26px; font-weight: 700; color: #fff; margin-top: 4px; line-height: 1.1; }
+  .stat-item .delta { font-size: 11px; color: #777; margin-top: 3px; }
+  .stat-item .value.green { color: #34d058; }
+  .stat-item .value.red { color: #f85149; }
+  .stat-item .value.yellow { color: #f9c84a; }
+  .stat-item .value.small { font-size: 17px; }
+
+  /* Treemap */
+  #treemap-container {
+    padding: 0; background: #0a0a0a;
+  }
+  #treemap {
+    display: block; width: 100%; height: calc(100vh - 240px); min-height: 600px;
+  }
+  .treemap-cell {
+    stroke: #0a0a0a; stroke-width: 2; cursor: pointer;
+    transition: opacity 0.15s, stroke 0.15s;
+  }
+  .treemap-cell:hover { opacity: 0.85; stroke: #fff; stroke-width: 2; }
+  .treemap-label {
+    fill: #fff; font-size: 11px; font-weight: 600; pointer-events: none;
+    font-family: -apple-system, sans-serif;
+  }
+  .treemap-label-small {
+    font-size: 10px; font-weight: 500; opacity: 0.95;
+  }
+  .treemap-label-tag {
+    font-size: 9px; font-weight: 600; fill: #fff; opacity: 0.85;
+  }
+  .treemap-group-label {
+    fill: #fff; font-size: 13px; font-weight: 700; pointer-events: none;
+    letter-spacing: -0.1px;
+  }
+  .treemap-group-naics {
+    fill: rgba(255,255,255,0.55); font-size: 10px; font-weight: 500;
+    pointer-events: none;
+  }
+
+  /* Tooltip */
+  .tooltip {
+    position: absolute; background: rgba(15, 15, 15, 0.98);
+    border: 1px solid #2a2a2a; padding: 14px 18px; border-radius: 10px;
+    pointer-events: none; opacity: 0; transition: opacity 0.12s;
+    font-size: 13px; color: #e8eaed; min-width: 260px; max-width: 340px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+    z-index: 1000;
+  }
+  .tooltip .t-title { font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 2px; }
+  .tooltip .t-subtitle { font-size: 11px; color: #888; margin-bottom: 12px; }
+  .tooltip .t-rows { border-top: 1px solid #2a2a2a; padding-top: 10px; }
+  .tooltip .t-row {
+    display: grid; grid-template-columns: 90px 1fr;
+    gap: 12px; padding: 3px 0; align-items: center;
+  }
+  .tooltip .t-row .k { color: #888; font-size: 11px; }
+  .tooltip .t-row .v {
+    color: #fff; font-weight: 600; font-size: 13px;
+    font-family: "SF Mono", Consolas, monospace;
+  }
+  .tooltip .t-bar {
+    display: inline-block; vertical-align: middle; margin-left: 8px;
+    height: 4px; border-radius: 2px; background: #1a73e8;
+  }
+  .tooltip .t-score {
+    margin-top: 12px; padding: 10px 14px; background: rgba(255,255,255,0.05);
+    border-radius: 6px;
+  }
+  .tooltip .t-score-label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+  .tooltip .t-score-value {
+    font-size: 24px; font-weight: 700; font-family: "SF Mono", Consolas, monospace;
+    margin-top: 3px;
+  }
+  .verdict {
+    display: inline-block; padding: 3px 10px; border-radius: 12px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    margin-top: 8px;
+  }
+  .tooltip .t-note {
+    margin-top: 10px; padding: 8px 10px; background: rgba(249, 200, 74, 0.12);
+    border-left: 2px solid #f9c84a; border-radius: 3px;
+    font-size: 11px; color: #f9c84a;
+  }
+
+  /* Methodology view */
+  #methodology-view { max-width: 1000px; margin: 0 auto; padding: 32px 28px 80px; }
+  #methodology-view h1 { font-size: 28px; color: #fff; margin-bottom: 8px; font-weight: 700; }
+  #methodology-view .intro-sub { color: #888; font-size: 13px; margin-bottom: 24px; }
+  #methodology-view h2 { font-size: 20px; color: #fff; margin: 32px 0 12px; font-weight: 700; }
+  #methodology-view h3 { font-size: 15px; color: #4ea0ff; margin: 18px 0 6px; }
+  #methodology-view p { margin: 10px 0; color: #c9ccd1; }
+  #methodology-view strong { color: #fff; }
+  #methodology-view em { color: #b8bcc4; font-style: italic; }
+
+  .intro-card {
+    background: #161616; border-left: 4px solid #4ea0ff;
+    padding: 18px 22px; border-radius: 4px; margin: 20px 0;
+    color: #c9ccd1;
+  }
+
+  .formula-box {
+    background: linear-gradient(135deg, #1a73e8 0%, #4ea0ff 100%);
+    padding: 22px; border-radius: 10px; text-align: center;
+    font-family: "SF Mono", Consolas, monospace; font-size: 26px;
+    margin: 20px 0; color: white; font-weight: 600; letter-spacing: 1px;
+    box-shadow: 0 8px 30px rgba(26, 115, 232, 0.3);
+  }
+  .formula-box .small {
+    font-size: 13px; opacity: 0.9; display: block; margin-top: 8px;
+    font-family: inherit; font-weight: 400;
+  }
+
+  .block-card {
+    background: #131313; border-left: 4px solid #1a73e8;
+    padding: 20px 24px; border-radius: 6px; margin: 14px 0;
+  }
+  .block-card.v { border-left-color: #34d058; }
+  .block-card.c { border-left-color: #4ea0ff; }
+  .block-card.a { border-left-color: #f9c84a; }
+  .block-card.b { border-left-color: #b768f0; }
+  .block-card h3 {
+    margin: 0 0 10px; display: flex; align-items: center; gap: 10px;
+    font-size: 16px;
+  }
+  .block-card h3 .letter {
+    display: inline-block; width: 30px; height: 30px;
+    background: #1a73e8; color: #fff; border-radius: 50%;
+    text-align: center; line-height: 30px; font-weight: 700;
+    font-family: "SF Mono", Consolas, monospace; font-size: 14px;
+  }
+  .block-card.v h3 { color: #34d058; }
+  .block-card.c h3 { color: #4ea0ff; }
+  .block-card.a h3 { color: #f9c84a; }
+  .block-card.b h3 { color: #b768f0; }
+  .block-card.v h3 .letter { background: #34d058; color: #0a0a0a; }
+  .block-card.c h3 .letter { background: #4ea0ff; color: #0a0a0a; }
+  .block-card.a h3 .letter { background: #f9c84a; color: #0a0a0a; }
+  .block-card.b h3 .letter { background: #b768f0; color: #0a0a0a; }
+
+  .block-row {
+    display: grid; grid-template-columns: 110px 1fr;
+    gap: 14px; padding: 6px 0; align-items: start;
+  }
+  .block-row .label {
+    font-weight: 600; color: #888; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.5px; padding-top: 3px;
+  }
+  .block-row .value { color: #c9ccd1; font-size: 13px; }
+  .block-formula {
+    background: #0a0a0a; padding: 6px 12px; border-radius: 4px;
+    font-family: "SF Mono", Consolas, monospace; font-size: 13px;
+    display: inline-block; color: #4ea0ff; border: 1px solid #2a2a2a;
+  }
+  .why-note {
+    background: rgba(249, 200, 74, 0.08); border-left: 3px solid #f9c84a;
+    padding: 10px 14px; border-radius: 4px; margin-top: 12px;
+    font-size: 12.5px; color: #d4b97e;
+  }
+  .why-note strong { color: #f9c84a; }
+
+  .scale-table { width: 100%; border-collapse: collapse; margin: 14px 0; background: #131313; border-radius: 6px; overflow: hidden; }
+  .scale-table th, .scale-table td {
+    padding: 10px 14px; text-align: left; border-bottom: 1px solid #1f1f1f;
+    font-size: 13px;
+  }
+  .scale-table th { background: #1a1a1a; color: #fff; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .scale-table td:first-child {
+    font-weight: 700; width: 130px;
+  }
+  .scale-table td.cell-helly { background: #0d652d; color: white; }
+  .scale-table td.cell-strong { background: #34d058; color: #0a0a0a; }
+  .scale-table td.cell-cond { background: #f9c84a; color: #0a0a0a; }
+  .scale-table td.cell-pass { background: #f85149; color: white; }
+  .scale-table td.cell-kill { background: #3a3a3a; color: #ccc; }
+
+  .worked-example {
+    background: #131313; border-radius: 8px; padding: 20px 24px; margin: 18px 0;
+    border: 1px solid #2a2a2a;
+  }
+  .worked-example h4 { color: #fff; font-size: 14px; margin-bottom: 12px; }
+  .worked-example table { width: 100%; border-collapse: collapse; }
+  .worked-example td { padding: 7px 12px; border-bottom: 1px solid #1f1f1f; font-size: 13px; color: #c9ccd1; vertical-align: top; }
+  .worked-example td:first-child { font-weight: 600; color: #4ea0ff; width: 90px; font-family: "SF Mono", Consolas, monospace; }
+  .worked-example .result {
+    margin-top: 14px; padding: 12px 16px; background: #0d652d;
+    color: white; border-radius: 6px; font-weight: 600;
+    font-family: "SF Mono", Consolas, monospace; font-size: 15px;
+  }
+  .compare-note {
+    margin-top: 12px; padding: 10px 14px; background: rgba(78, 160, 255, 0.08);
+    border-left: 3px solid #4ea0ff; border-radius: 4px;
+    font-size: 12.5px; color: #a8c3e6;
+  }
+
+  .excluded-list { background: #131313; border-radius: 8px; padding: 4px 20px; }
+  .excluded-list .row { padding: 12px 0; border-bottom: 1px solid #1f1f1f; display: grid; grid-template-columns: 220px 1fr; gap: 18px; }
+  .excluded-list .row:last-child { border-bottom: none; }
+  .excluded-list .row .what { font-weight: 600; color: #fff; font-size: 13px; }
+  .excluded-list .row .why { color: #c9ccd1; font-size: 13px; }
+
+  ol.workflow-steps { margin: 12px 0 12px 24px; }
+  ol.workflow-steps li { margin: 8px 0; color: #c9ccd1; font-size: 13px; }
+  ol.workflow-steps li strong { color: #fff; }
+
+  .footer-block {
+    margin-top: 60px; padding: 24px; text-align: center;
+    color: #555; font-size: 11px; border-top: 1px solid #1f1f1f;
+  }
+
+  /* Responsive */
+  @media (max-width: 800px) {
+    .layer-bar { padding: 12px 16px; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .stat-item { border-right: none; border-bottom: 1px solid #1f1f1f; }
+    #methodology-view { padding: 20px 16px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="title-block">
+    <div class="title">AI Value Migration Map</div>
+    <div class="subtitle">Roll-up vertical selection · Bobroff Capital · v3.0</div>
+  </div>
+  <nav class="nav">
+    <div class="nav-tab active" data-tab="map">🗺️ Map</div>
+    <div class="nav-tab" data-tab="methodology">📐 Methodology</div>
+  </nav>
+</header>
+
+<!-- ====================== MAP VIEW ====================== -->
+<div id="map-view" class="view active">
+
+  <div class="layer-bar">
+    <span class="layer-label">Color by</span>
+    <div class="layer-toggle">
+      <button class="layer-btn active" data-layer="S">S — Score</button>
+      <button class="layer-btn" data-layer="V">V — Value Created</button>
+      <button class="layer-btn" data-layer="C">C — Capture Share</button>
+      <button class="layer-btn" data-layer="A">A — Adoption Speed</button>
+      <button class="layer-btn" data-layer="B">B — Buyability</button>
+    </div>
+    <div class="legend" id="legend-container">
+      <span class="legend-pill"><span class="legend-color" style="background:#0d652d"></span>Hell-Yes</span>
+      <span class="legend-pill"><span class="legend-color" style="background:#34d058"></span>Strong</span>
+      <span class="legend-pill"><span class="legend-color" style="background:#f9c84a"></span>Conditional</span>
+      <span class="legend-pill"><span class="legend-color" style="background:#f85149"></span>Pass</span>
+      <span class="legend-pill"><span class="legend-color" style="background:#3a3a3a"></span>KILL</span>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat-item">
+      <div class="label">Total Cells</div>
+      <div class="value">44</div>
+      <div class="delta">8 sub-sectors × workflows</div>
+    </div>
+    <div class="stat-item">
+      <div class="label">Hell-Yes (S ≥ 3000)</div>
+      <div class="value green">5</div>
+      <div class="delta">prime IC candidates</div>
+    </div>
+    <div class="stat-item">
+      <div class="label">Strong (1000–3000)</div>
+      <div class="value green">17</div>
+      <div class="delta">attractive cells</div>
+    </div>
+    <div class="stat-item">
+      <div class="label">Conditional (300–1000)</div>
+      <div class="value yellow">10</div>
+      <div class="delta">need sub-segment</div>
+    </div>
+    <div class="stat-item">
+      <div class="label">KILL / AI destroys</div>
+      <div class="value red">5</div>
+      <div class="delta">S &lt; 50</div>
+    </div>
+    <div class="stat-item">
+      <div class="label">Top Sub-sector</div>
+      <div class="value small">Property Mgmt</div>
+      <div class="delta">Σ S = 14,978</div>
+    </div>
+    <div class="stat-item">
+      <div class="label">Top Workflow</div>
+      <div class="value small">Doc parsing</div>
+      <div class="delta">avg S = 2,478</div>
+    </div>
+  </div>
+
+  <div id="treemap-container">
+    <svg id="treemap"></svg>
+  </div>
+
+</div>
+
+<!-- ====================== METHODOLOGY VIEW ====================== -->
+<div id="methodology-view" class="view">
+
+  <h1>Methodology — AI Value Migration v3.0</h1>
+  <div class="intro-sub">How Bobroff Cap selects roll-up verticals in the AI tsunami · 2026-05-23</div>
+
+  <div class="intro-card">
+    <strong>In one paragraph.</strong> We don't pick "good industries" — we pick <em>cells (sub-sector × workflow)</em> where (1) AI dislodged measurable value from an incumbent, (2) we can pocket it instead of an upstream gatekeeper, (3) the market adopts AI within our investment horizon, and (4) we can actually buy a way in. The product of those four conditions = cell score. Sum of green-cell scores = the fund's total addressable opportunity. No 27 criteria, no "intuitively good" verticals — just measurable math.
+  </div>
+
+  <h2>The formula</h2>
+  <div class="formula-box">
+    S<sub>cell</sub> = V × C × A × B
+    <span class="small">Cell score = Value Created × Capture Share × Adoption Speed × Buyability</span>
+  </div>
+
+  <h2>Why multiplication, not summation</h2>
+  <p>
+    Summation would let a strong V compensate for a weak C. That's the <strong>mortgage processors trap</strong>: V is huge (banks automate claims, save hundreds of millions per year), but <strong>C ≈ 0</strong> — five banks own the borrower relationship, and every saved dollar flows upstream to them, not to the processor. Sum-based scoring would falsely greenlight this. Multiplication punishes any weak component: 9 × 9 × 9 × 0.5 = 364 (Pass), not 27 (which a sum would give). That's the right signal.
+  </p>
+
+  <h2>The four multipliers</h2>
+
+  <div class="block-card v">
+    <h3><span class="letter">V</span>Value Created — what AI dislodged</h3>
+    <div class="block-row">
+      <div class="label">What</div>
+      <div class="value">$/year that AI displaces from incumbent in this cell nationally. Normalized to a 0–10 scale.</div>
+    </div>
+    <div class="block-row">
+      <div class="label">Formula</div>
+      <div class="value"><span class="block-formula">V = normalize(LR + ΔM)</span></div>
+    </div>
+    <div class="block-row">
+      <div class="label">LR</div>
+      <div class="value"><strong>Labor Removed</strong> = labor cost × workflow share × avg task replaceability. For each task in the workflow, take its AI exposure score from Karpathy.ai/jobs or Anthropic Economic Index, multiply by task share within workflow, by workflow share in total sub-sector labor. This is Karpathy-grade because κ values are <em>measured</em>, not guessed.</div>
+    </div>
+    <div class="block-row">
+      <div class="label">ΔM</div>
+      <div class="value"><strong>Margin/Revenue uplift</strong> = revenue × (margin uplift + speed uplift × contribution margin). Pulled from our P&L Before/After AI sheet for 16 verticals; new cells require building it fresh.</div>
+    </div>
+    <div class="block-row">
+      <div class="label">Sources</div>
+      <div class="value" style="font-size: 12px; color: #888;"><strong>BLS QCEW</strong> · <strong>Celonis/UiPath workflow catalogs</strong> · <strong>Karpathy.ai/jobs + Anthropic Economic Index</strong> · <strong>Bobroff 16-vertical P&L sheet</strong></div>
+    </div>
+    <div class="why-note"><strong>Why V exists:</strong> if AI didn't dislodge value (LR + ΔM ≤ 0), there's nothing to extract. BPO × Customer Support has V=10 (AI removes 90% of agents) — but C then zeroes the whole score, because that value flows to direct-to-enterprise AI vendors, not to BPO operators.</div>
+  </div>
+
+  <div class="block-card c">
+    <h3><span class="letter">C</span>Capture Share — what we pocket</h3>
+    <div class="block-row">
+      <div class="label">What</div>
+      <div class="value">% of V we keep (not the upstream gatekeeper, generic-AI vendor, or regulator). 0–10 scale = 0.0–1.0 × 10.</div>
+    </div>
+    <div class="block-row">
+      <div class="label">Formula</div>
+      <div class="value"><span class="block-formula">C = 10 × π_dist × π_moat</span></div>
+    </div>
+    <div class="block-row">
+      <div class="label">π_dist</div>
+      <div class="value"><strong>Distribution Control</strong> ∈ [0, 1]. 0 = upstream gatekeeper owns the customer (banks in mortgage; OEMs in parts; ANGI/Thumbtack aggregators in handyman). 1 = the operator we acquire owns the customer directly (broker in insurance, agency in HomeCare, property manager in PM).</div>
+    </div>
+    <div class="block-row">
+      <div class="label">π_moat</div>
+      <div class="value"><strong>Moat strength</strong> ∈ [0, 1]. Composite of license/regulation + accumulated proprietary data + physical presence + multi-sided network. 0 = generic-AI vendor does it for 12 months without us. 1 = regulated license + 20yr client history + physical service.</div>
+    </div>
+    <div class="block-row">
+      <div class="label">Sources</div>
+      <div class="value" style="font-size: 12px; color: #888;"><strong>Operator interviews</strong> (revenue channel breakdown) · <strong>NAIC state licensing</strong> · <strong>Vendor failure-mode case studies</strong> · <strong>Bessemer/Sequoia moat research</strong></div>
+    </div>
+    <div class="why-note"><strong>Why C is multiplicative inside itself:</strong> distribution and moat are both necessary. Strong distribution + no moat → generic AI bypasses us within a year. Strong moat + weak distribution → value flows to whoever owns the customer. Multiplication closes both holes.</div>
+  </div>
+
+  <div class="block-card a">
+    <h3><span class="letter">A</span>Adoption Speed — how fast the market accepts</h3>
+    <div class="block-row">
+      <div class="label">What</div>
+      <div class="value">Speed of AI adoption in the workflow, in years until 50% market adoption. Faster = more $/year extracted before commoditization equalizes margins.</div>
+    </div>
+    <div class="block-row">
+      <div class="label">Formula</div>
+      <div class="value"><span class="block-formula">A = 10 / t_50</span></div>
+    </div>
+    <div class="block-row">
+      <div class="label">Calibration</div>
+      <div class="value">t_50 = 1 yr → A = 10 (doc parsing in claims, already happening). t_50 = 2 yr → A = 5 (most back-office). t_50 = 5 yr → A = 2 (RN scheduling in HomeCare: cultural + regulatory drag). t_50 = 10 yr → A = 1 (surgery, litigation).</div>
+    </div>
+    <div class="block-row">
+      <div class="label">Sources</div>
+      <div class="value" style="font-size: 12px; color: #888;"><strong>Anthropic Economic Index</strong> (current adoption % as leading indicator) · <strong>Historical analogues</strong> (cloud 2008→2018; ERP 1995→2005; mobile 2007→2014) · <strong>McKinsey AI Adoption Survey</strong> · <strong>Operator integration interviews</strong></div>
+    </div>
+    <div class="why-note"><strong>Why A:</strong> this is Nicolas's "$/time". Total fund $ = ($/year) × (years in the window). If adoption is slow, the window opens too late for fund horizon. Even a high-V cell with slow A can't deliver returns within an IC's tolerance.</div>
+  </div>
+
+  <div class="block-card b">
+    <h3><span class="letter">B</span>Buyability — can we enter</h3>
+    <div class="block-row">
+      <div class="label">What</div>
+      <div class="value">Whether Bobroff can actually acquire operators: enough targets, willing owners, sane multiples, no PE platforms blocking. <strong>Replaces the old "fragmentation as gate"</strong>.</div>
+    </div>
+    <div class="block-row">
+      <div class="label">Formula</div>
+      <div class="value"><span class="block-formula">B = 10 × (TD × OW × PD) / (1 + CFD)</span></div>
+    </div>
+    <div class="block-row">
+      <div class="label">TD</div>
+      <div class="value"><strong>Target Density</strong>: log(N operators in our $1–10M EBITDA band). Not "thousands", but "how many in our band".</div>
+    </div>
+    <div class="block-row">
+      <div class="label">OW</div>
+      <div class="value"><strong>Owner Willingness</strong>: silver tsunami × succession gap × economic distress. 60+ owner without succession + distressed = high.</div>
+    </div>
+    <div class="block-row">
+      <div class="label">PD</div>
+      <div class="value"><strong>Price Discipline</strong>: (Public comp − Asking) / Public comp. Positive = we buy below comp.</div>
+    </div>
+    <div class="block-row">
+      <div class="label">CFD</div>
+      <div class="value"><strong>Competition For Deals</strong>: log(1 + active PE platforms). How many funds already buying these deals.</div>
+    </div>
+    <div class="why-note"><strong>The Agrosignal test:</strong> Russian agri-software had <em>one</em> company on the market. TD low. But OW=1 (owner wanted to sell), PD=1 (entered cheap), CFD=0 (nobody else hunting). Product → B high. We bought. Old S16 "fragmentation ≥ thousands" would have blocked this deal. New formula passes correctly.</div>
+  </div>
+
+  <h2>Score interpretation</h2>
+  <table class="scale-table">
+    <thead><tr><th style="width: 140px;">Color</th><th style="width: 130px;">S range</th><th>What it means</th></tr></thead>
+    <tbody>
+      <tr><td class="cell-helly">Hell-Yes</td><td>≥ 3,000</td><td>All four blocks strong. Build the AI playbook here now. Run before the window closes.</td></tr>
+      <tr><td class="cell-strong">Strong</td><td>1,000 – 3,000</td><td>Good cell, one block weakened. Specific condition must be named at IC.</td></tr>
+      <tr><td class="cell-cond">Conditional</td><td>300 – 1,000</td><td>Works only with right sub-segment (e.g. Insurance tier-2, not tier-1). Without sub-segment definition → Pass.</td></tr>
+      <tr><td class="cell-pass">Pass</td><td>50 – 300</td><td>Multiple weak blocks. Not worth fund resource.</td></tr>
+      <tr><td class="cell-kill">KILL / AI destroys</td><td>&lt; 50</td><td>Either V near 0 (AI doesn't apply — relationship work, surgery) or C near 0 (value flows elsewhere — BPO, mortgage processors).</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Worked example</h2>
+
+  <div class="worked-example">
+    <h4>Insurance Brokerage P&C tier-2 × Document parsing</h4>
+    <table>
+      <tr><td>V = 9</td><td>LR ≈ $3.6B/yr nationally (claims doc parsing κ=0.95, fraud scoring κ=0.80). ΔM ≈ $1.1B/yr. Total ≈ $4.7B/yr at national scale.</td></tr>
+      <tr><td>C = 6.4</td><td>π_dist = 0.85 (broker owns client; carrier doesn't). π_moat = 0.75 (50-state license + accumulated book of business). C = 10 × 0.85 × 0.75.</td></tr>
+      <tr><td>A = 8</td><td>t_50 ≈ 1.25 yrs: high adoption pressure (labor savings obvious), moderate friction (compliance), current adoption ~20% (Anthropic Economic Index, Mar 2026).</td></tr>
+      <tr><td>B = 8.5</td><td>tier-2 segment: 145K agencies, low PE saturation (PE prefers >$5M EBITDA), strong silver tsunami (3rd-gen owners), median asking 5.5×, public comps 11×.</td></tr>
+    </table>
+    <div class="result">S = 9 × 6.4 × 8 × 8.5 = 3,917 — Hell-Yes 💚</div>
+    <div class="compare-note">
+      <strong>Vs Insurance tier-1:</strong> Same V=9, same A=8, but C drops to ~3.5 (PE-saturated), B drops to 3 (CFD high). S = 9 × 3.5 × 8 × 3 = 756. Five times lower score — same NAICS, opposite verdict. <strong>The formula does sub-segment definability mathematically,</strong> without a separate hard-gate.
+    </div>
+  </div>
+
+  <h2>What's NOT in the formula — and why</h2>
+  <div class="excluded-list">
+    <div class="row">
+      <div class="what">Fragmentation as hard-gate</div>
+      <div class="why">Absorbed into B via TD. The Agrosignal one-target case passes the formula. "Fragmentation ≥ thousands" was a 2010s private equity artifact, broken on AI-rollup actionable deals.</div>
+    </div>
+    <div class="row">
+      <div class="what">CAGR / TAM standalone</div>
+      <div class="why">CAGR is a metric of static economies. AI changes distribution and cost structure, not market size. TAM is implicit in LR and ΔM — but not as a standalone variable.</div>
+    </div>
+    <div class="row">
+      <div class="what">"Profitable at SME level" gate</div>
+      <div class="why">Absorbed into V. If LR + ΔM > 0, the cell creates extractable value by definition. No separate gate needed.</div>
+    </div>
+    <div class="row">
+      <div class="what">"Why this time is different"</div>
+      <div class="why">AI as external force (V_AI, κ) answers this directly. If V > 0, AI is rewriting the cell's rules — that <em>is</em> "why now". Observation, not criterion.</div>
+    </div>
+    <div class="row">
+      <div class="what">Founder access</div>
+      <div class="why">Not in this formula. It's about the deal (Section B), not the vertical class. A vertical can be Hell-Yes on the map; founder access is then checked when shortlisting the top-10 cells for action.</div>
+    </div>
+    <div class="row">
+      <div class="what">Geography (US vs EU)</div>
+      <div class="why">Not needed at vertical-selection. The workflow is the same. PropMgmt UK vs US is a deal-level choice. One map, deal execution localizes.</div>
+    </div>
+    <div class="row">
+      <div class="what">Anti-pattern as separate gate</div>
+      <div class="why">Catchment-bound, asset-heavy, COGS-dominant — these all mathematically fail on V (low automatable labor share) or B (high capex blocks acquisition). Vet × any workflow yields S &lt; 200 with no separate "anti-pattern" gate.</div>
+    </div>
+  </div>
+
+  <h2>Honest weaknesses</h2>
+  <p style="font-size: 13px; color: #c9ccd1;">
+    <strong>1. Normalize(V) is subjective.</strong> Anchoring LR + ΔM in $/year to a 0–10 scale requires anchor points that may shift as we add cells. Calibrating on the 16-vertical sheet, but the first 50 new cells will stretch the scale.<br><br>
+    <strong>2. t_50 is an estimate.</strong> Anthropic Economic Index gives current level, but S-curve velocity is estimated from analogues. ±50% error band.<br><br>
+    <strong>3. π_moat is a composite.</strong> License + data + physical + network — four different things compressed into one number. Future version may split it.<br><br>
+    <strong>4. The map is static, the economy isn't.</strong> Recompute quarterly. Doc parsing κ can rise from 0.85 to 0.97 in 6 months, moving Accounting × Doc parsing from V=9 to V=10.
+  </p>
+
+  <h2>Working cycle</h2>
+  <ol class="workflow-steps">
+    <li><strong>Quarterly</strong> — refresh the grid: L_S (BLS), κ (new Anthropic Economic Index), PitchBook PE-saturation snapshot.</li>
+    <li><strong>Per cell</strong> — collect 5 atomic inputs (LR, ΔM, π_dist, π_moat, t_50, π_buy). 30–60 min per cell with operator interview + benchmark.</li>
+    <li><strong>Compute S</strong> — formula applies.</li>
+    <li><strong>Rank</strong> — top-50 cells by S → shortlist for detailed workflow drill.</li>
+    <li><strong>Top-10 only</strong> — full workflow audit: P&L bridge, named operators, founder access verified.</li>
+    <li><strong>Hell-Yes eligibility</strong> — only cells where S ≥ 1000 <em>and</em> every block ≥ 3 (no block "carried" by others).</li>
+  </ol>
+
+  <div class="footer-block">
+    Bobroff Capital · AI Value Migration Methodology v3.0 · 2026-05-23 · Lisa Ivanchikova
+  </div>
+
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ====================== DATA ======================
+// [sub-sector, naics, workflow, V, C, A, B, note]
+const cellData = [
+  ["Insurance P&C tier-2", "5242", "Doc parsing", 9, 6.4, 8, 8.5, ""],
+  ["Insurance P&C tier-2", "5242", "Customer support", 6, 6.4, 6, 8.5, ""],
+  ["Insurance P&C tier-2", "5242", "Billing / A/R", 5, 6.4, 7, 8.5, ""],
+  ["Insurance P&C tier-2", "5242", "Sales / leads", 7, 6.4, 4, 8.5, ""],
+  ["Insurance P&C tier-2", "5242", "Relationship", 2, 8.0, 1, 8.5, "protected — brokers"],
+
+  ["HomeCare", "6216", "Doc parsing", 7, 7.0, 6, 8, ""],
+  ["HomeCare", "6216", "Scheduling", 8, 8.0, 5, 8, ""],
+  ["HomeCare", "6216", "Customer support", 5, 7.0, 6, 8, ""],
+  ["HomeCare", "6216", "Billing", 6, 8.0, 7, 8, ""],
+  ["HomeCare", "6216", "Intake", 5, 6.0, 4, 8, ""],
+  ["HomeCare", "6216", "Care plan / caregivers", 1, 9.0, 1, 8, "protected — physical care"],
+
+  ["Property Mgmt", "5311", "Doc parsing (leases)", 7, 7.0, 7, 8, ""],
+  ["Property Mgmt", "5311", "Scheduling (maintenance)", 8, 7.0, 6, 8, ""],
+  ["Property Mgmt", "5311", "Customer support (tenants)", 8, 7.0, 7, 8, ""],
+  ["Property Mgmt", "5311", "Billing (rent)", 7, 8.0, 8, 8, ""],
+  ["Property Mgmt", "5311", "Leasing / sales", 8, 7.0, 6, 8, ""],
+  ["Property Mgmt", "5311", "Landlord relationship", 2, 9.0, 1, 8, "protected — relationship"],
+
+  ["Accounting", "5412", "Doc parsing", 9, 7.0, 8, 8, ""],
+  ["Accounting", "5412", "Customer support", 6, 7.0, 6, 8, ""],
+  ["Accounting", "5412", "Billing", 7, 7.0, 8, 8, ""],
+  ["Accounting", "5412", "Sales", 5, 6.0, 4, 8, ""],
+  ["Accounting", "5412", "CFO advisory", 3, 9.0, 2, 8, "premium upsell"],
+
+  ["MSP / IT", "5415", "Doc parsing", 7, 7.0, 7, 7, ""],
+  ["MSP / IT", "5415", "Scheduling", 7, 7.0, 6, 7, ""],
+  ["MSP / IT", "5415", "Help desk", 8, 6.0, 8, 7, ""],
+  ["MSP / IT", "5415", "Billing", 6, 7.0, 7, 7, ""],
+  ["MSP / IT", "5415", "Sales", 5, 6.0, 4, 7, ""],
+  ["MSP / IT", "5415", "Security advisory", 2, 8.0, 1, 7, "protected"],
+
+  ["Marketing", "5418", "Doc parsing", 4, 4.0, 7, 6, ""],
+  ["Marketing", "5418", "Customer support", 3, 4.0, 6, 6, ""],
+  ["Marketing", "5418", "Billing", 4, 4.0, 7, 6, ""],
+  ["Marketing", "5418", "Sales / lead gen", 6, 4.0, 6, 6, ""],
+  ["Marketing", "5418", "Creative production", 9, 3.0, 9, 6, "AI commoditizes pricing"],
+  ["Marketing", "5418", "Account mgmt", 1, 5.0, 1, 6, ""],
+
+  ["HR Exec Search", "5613", "Doc parsing (resumes)", 8, 5.0, 8, 6, ""],
+  ["HR Exec Search", "5613", "Scheduling", 6, 5.0, 6, 6, ""],
+  ["HR Exec Search", "5613", "Customer support", 5, 5.0, 6, 6, ""],
+  ["HR Exec Search", "5613", "Billing", 4, 5.0, 7, 6, ""],
+  ["HR Exec Search", "5613", "Sourcing", 9, 4.0, 9, 6, "recruiters walk with book"],
+  ["HR Exec Search", "5613", "Placement", 2, 7.0, 1, 6, ""],
+
+  ["BPO / Call Centers", "5611", "Doc parsing", 8, 1.0, 9, 4, "AI destroys"],
+  ["BPO / Call Centers", "5611", "Customer support", 10, 1.0, 10, 3, "AI destroys — Klarna pattern"],
+  ["BPO / Call Centers", "5611", "Billing", 7, 2.0, 8, 4, ""],
+  ["BPO / Call Centers", "5611", "Sales", 8, 2.0, 8, 4, ""],
+  ["BPO / Call Centers", "5611", "Account mgmt", 1, 3.0, 1, 4, ""]
+];
+
+// Build hierarchy
+function buildHierarchy() {
+  const groups = {};
+  cellData.forEach(row => {
+    const [subsector, naics, workflow, V, C, A, B, note] = row;
+    const S = Math.round(V * C * A * B);
+    if (!groups[subsector]) {
+      groups[subsector] = { name: subsector, naics, children: [] };
+    }
+    groups[subsector].children.push({
+      name: workflow, V, C, A, B, S, note,
+      subsector, naics,
+      value: Math.max(1, V * V) // size by V² for visual emphasis
+    });
+  });
+  return { name: "root", children: Object.values(groups) };
+}
+
+// Color mapping
+function colorForLayer(d, layer) {
+  if (layer === 'S') {
+    const s = d.data.S;
+    if (s >= 3000) return '#0d652d';
+    if (s >= 1000) return '#34d058';
+    if (s >= 300) return '#f9c84a';
+    if (s >= 50) return '#f85149';
+    return '#3a3a3a';
+  } else {
+    const val = d.data[layer];
+    if (val >= 8) return '#0d652d';
+    if (val >= 6) return '#34d058';
+    if (val >= 4) return '#f9c84a';
+    if (val >= 2) return '#f85149';
+    return '#3a3a3a';
+  }
+}
+
+function textColorFor(bgColor) {
+  // dark bg → white text; yellow bg → dark text
+  if (bgColor === '#f9c84a') return '#0a0a0a';
+  if (bgColor === '#34d058') return '#0a0a0a';
+  return '#fff';
+}
+
+function getVerdict(s) {
+  if (s >= 3000) return { label: 'Hell-Yes', color: '#0d652d' };
+  if (s >= 1000) return { label: 'Strong', color: '#34d058' };
+  if (s >= 300) return { label: 'Conditional', color: '#f9c84a' };
+  if (s >= 50) return { label: 'Pass', color: '#f85149' };
+  return { label: 'KILL', color: '#3a3a3a' };
+}
+
+let currentLayer = 'S';
+
+function render(layer) {
+  currentLayer = layer;
+
+  const container = document.getElementById('treemap-container');
+  const svg = d3.select('#treemap');
+  const width = container.clientWidth;
+  const height = Math.max(600, window.innerHeight - 240);
+
+  svg.attr('viewBox', `0 0 ${width} ${height}`)
+     .attr('width', width)
+     .attr('height', height);
+  svg.selectAll('*').remove();
+
+  const root = d3.hierarchy(buildHierarchy())
+    .sum(d => d.value || 0)
+    .sort((a, b) => b.value - a.value);
+
+  d3.treemap()
+    .size([width, height])
+    .padding(3)
+    .paddingTop(28)
+    .paddingInner(2)
+    (root);
+
+  // Group rectangles (sub-sector containers)
+  const groups = svg.selectAll('g.group')
+    .data(root.children)
+    .enter()
+    .append('g')
+    .attr('class', 'group');
+
+  groups.append('rect')
+    .attr('x', d => d.x0)
+    .attr('y', d => d.y0)
+    .attr('width', d => d.x1 - d.x0)
+    .attr('height', d => d.y1 - d.y0)
+    .attr('fill', '#161616')
+    .attr('stroke', '#2a2a2a')
+    .attr('stroke-width', 1);
+
+  groups.append('text')
+    .attr('class', 'treemap-group-label')
+    .attr('x', d => d.x0 + 8)
+    .attr('y', d => d.y0 + 17)
+    .text(d => d.data.name);
+
+  groups.append('text')
+    .attr('class', 'treemap-group-naics')
+    .attr('x', d => d.x0 + 8)
+    .attr('y', d => d.y0 + 17)
+    .attr('dx', function(d) { return this.previousSibling.getComputedTextLength() + 6; })
+    .text(d => 'NAICS ' + d.data.naics);
+
+  // Cells
+  const cells = svg.selectAll('g.cell-group')
+    .data(root.leaves())
+    .enter()
+    .append('g')
+    .attr('class', 'cell-group')
+    .attr('transform', d => `translate(${d.x0},${d.y0})`);
+
+  cells.append('rect')
+    .attr('class', 'treemap-cell')
+    .attr('width', d => Math.max(0, d.x1 - d.x0))
+    .attr('height', d => Math.max(0, d.y1 - d.y0))
+    .attr('fill', d => colorForLayer(d, currentLayer))
+    .on('mouseover', (event, d) => showTooltip(event, d))
+    .on('mousemove', (event, d) => moveTooltip(event))
+    .on('mouseout', hideTooltip);
+
+  // Labels
+  cells.each(function(d) {
+    const w = d.x1 - d.x0;
+    const h = d.y1 - d.y0;
+    const bg = colorForLayer(d, currentLayer);
+    const fg = textColorFor(bg);
+
+    if (w > 60 && h > 32) {
+      d3.select(this).append('text')
+        .attr('class', 'treemap-label')
+        .attr('x', 7)
+        .attr('y', 16)
+        .style('fill', fg)
+        .text(truncate(d.data.name, Math.floor(w / 6.5)));
+
+      if (h > 48) {
+        d3.select(this).append('text')
+          .attr('class', 'treemap-label treemap-label-small')
+          .attr('x', 7)
+          .attr('y', 30)
+          .style('fill', fg)
+          .style('opacity', 0.85)
+          .text('S = ' + d.data.S.toLocaleString());
+      }
+
+      if (d.data.note && h > 64) {
+        d3.select(this).append('text')
+          .attr('class', 'treemap-label-tag')
+          .attr('x', 7)
+          .attr('y', h - 7)
+          .style('fill', fg)
+          .style('opacity', 0.7)
+          .text('⚠ ' + truncate(d.data.note, Math.floor(w / 5.5)));
+      }
+    } else if (w > 30 && h > 18) {
+      d3.select(this).append('text')
+        .attr('class', 'treemap-label-small')
+        .attr('x', 4)
+        .attr('y', 12)
+        .style('fill', fg)
+        .text(d.data.S);
+    }
+  });
+}
+
+function truncate(str, max) {
+  if (str.length <= max) return str;
+  return str.slice(0, Math.max(3, max - 1)) + '…';
+}
+
+const tooltip = d3.select('#tooltip');
+
+function showTooltip(event, d) {
+  const v = getVerdict(d.data.S);
+  const barW = (val) => Math.round(val * 14);
+
+  tooltip.html(`
+    <div class="t-title">${d.data.subsector}</div>
+    <div class="t-subtitle">NAICS ${d.data.naics} · ${d.data.name}</div>
+    <div class="t-rows">
+      <div class="t-row"><span class="k">V (Value)</span><span class="v">${d.data.V} <span class="t-bar" style="width:${barW(d.data.V)}px;background:#34d058"></span></span></div>
+      <div class="t-row"><span class="k">C (Capture)</span><span class="v">${d.data.C} <span class="t-bar" style="width:${barW(d.data.C)}px;background:#4ea0ff"></span></span></div>
+      <div class="t-row"><span class="k">A (Speed)</span><span class="v">${d.data.A} <span class="t-bar" style="width:${barW(d.data.A)}px;background:#f9c84a"></span></span></div>
+      <div class="t-row"><span class="k">B (Buyability)</span><span class="v">${d.data.B} <span class="t-bar" style="width:${barW(d.data.B)}px;background:#b768f0"></span></span></div>
+    </div>
+    <div class="t-score">
+      <div class="t-score-label">S = V × C × A × B</div>
+      <div class="t-score-value" style="color: ${v.color}">${d.data.S.toLocaleString()}</div>
+      <div class="verdict" style="background: ${v.color}; color: #fff">${v.label}</div>
+    </div>
+    ${d.data.note ? `<div class="t-note">⚠ ${d.data.note}</div>` : ''}
+  `).style('opacity', 1);
+  moveTooltip(event);
+}
+
+function moveTooltip(event) {
+  const tipNode = tooltip.node();
+  const tipRect = tipNode.getBoundingClientRect();
+  const tipW = tipRect.width || 280;
+  const tipH = tipRect.height || 250;
+  let x = event.pageX + 14;
+  let y = event.pageY + 14;
+  if (x + tipW > window.innerWidth - 20) x = event.pageX - tipW - 14;
+  if (y + tipH > window.scrollY + window.innerHeight - 20) y = event.pageY - tipH - 14;
+  tooltip.style('left', x + 'px').style('top', y + 'px');
+}
+
+function hideTooltip() {
+  tooltip.style('opacity', 0);
+}
+
+// Layer button handlers
+document.querySelectorAll('.layer-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.layer-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    render(btn.dataset.layer);
+  });
+});
+
+// Tab handlers
+document.querySelectorAll('.nav-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.tab + '-view').classList.add('active');
+    if (tab.dataset.tab === 'map') {
+      setTimeout(() => render(currentLayer), 50);
+    }
+  });
+});
+
+// Initial render
+window.addEventListener('load', () => render('S'));
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => render(currentLayer), 200);
+});
+</script>
+
+</body>
+</html>
